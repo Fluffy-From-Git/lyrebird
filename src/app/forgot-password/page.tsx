@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 export default function ForgotPasswordModal() {
   const form = useForm<{ email: string }>({
@@ -87,13 +88,13 @@ export default function ForgotPasswordModal() {
               </div>
             </div>
             <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
-              <button
+              <Button
                 type="button"
                 onClick={handleSubmit(submit)}
-                className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:col-start-2"
+                className="inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-x focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-start-2"
               >
                 Reset Password
-              </button>
+              </Button>
               <button
                 type="button"
                 data-autofocus

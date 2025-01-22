@@ -15,27 +15,23 @@ export const authConfig = {
   },
   session: { strategy: "jwt" },
   secret: process.env.AUTH_SECRET,
-  pages: { signIn: "/login" },
+  pages: { signIn: "/login", signOut: "/login" },
   callbacks: {
     authorized({ auth, request }) {
       const { nextUrl } = request;
+      const authenticatedPages: string[] = ["/history", "/consult"];
 
       const isLoggedIn = !!auth?.user;
-      const isOnProfile = nextUrl.pathname.startsWith("/dashboard");
-      // if on login or register page and logged in, redirect to profile
-      const isOnAuth = nextUrl.pathname.startsWith("/login");
+      const isOnAuthPage = authenticatedPages.some((page) =>
+        nextUrl.pathname.startsWith(page),
+      );
 
-      if (!isLoggedIn && isOnProfile) {
+      if (isLoggedIn && !isOnAuthPage) {
+        return Response.redirect(new URL("/consult", nextUrl));
+      }
+
+      if (!isLoggedIn && isOnAuthPage) {
         return Response.redirect(new URL("/login", nextUrl));
-      }
-
-      if (isLoggedIn && !isOnProfile) {
-        return Response.redirect(new URL("/dashboard", nextUrl));
-      }
-
-      if (isOnAuth) {
-        if (!isLoggedIn) return true;
-        return Response.redirect(new URL("/dashboard", nextUrl));
       }
 
       return true;

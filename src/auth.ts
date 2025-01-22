@@ -12,9 +12,6 @@ const nextAuth = NextAuth({
     strategy: "jwt",
   },
   secret: process.env.AUTH_SECRET,
-  pages: {
-    signIn: "/signin",
-  },
   providers: [
     Credentials({
       async authorize(credentials) {
