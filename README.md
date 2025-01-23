@@ -11,3 +11,11 @@ For best experience, use google chrome. I had trouble with chromium and firefox.
 5. npm run db:generate
 6. npm run db:migrate
 7. npm run dev
+
+## Solution
+
+- Used Next.js for both frontend and backend
+- Used drizzle orm with adapter for authentication with auth.js
+- zustand for state management
+- shadcn and tailwind for styling
+- react speech recognition for speech to text transcription
