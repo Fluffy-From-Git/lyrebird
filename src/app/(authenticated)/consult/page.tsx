@@ -125,7 +125,7 @@ export default function ConsultPage() {
       }
       setNoteBlock({ period: "end" }, "system");
     }
-  }, [consultState, transcript, setNoteBlock]);
+  }, [consultState, setNoteBlock]);
 
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
