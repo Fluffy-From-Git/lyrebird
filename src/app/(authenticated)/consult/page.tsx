@@ -1,17 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FaceSmileIcon,
   HeartIcon,
   XMarkIcon,
-  MicrophoneIcon,
   UserIcon,
   EyeIcon,
   ExclamationCircleIcon,
   QuestionMarkCircleIcon,
-  PlayIcon,
-  ClipboardDocumentListIcon,
+  MicrophoneIcon,
 } from "@heroicons/react/20/solid";
 
 import {
@@ -22,67 +20,17 @@ import {
   ListboxOptions,
 } from "@headlessui/react";
 import ConsultForm from "./ _components/consult-form";
+import UserBlock from "./ _components/user-block";
+import SystemBlock from "./ _components/system-block";
+import SpeechBlock from "./ _components/speech-block";
+import { useConsultStore, useNoteStore } from "@/lib/store";
 
-const activity = [
-  {
-    id: 1,
-    type: "",
-    person: { name: "Notes prior to consult" },
-    dateTime: "2023-01-23T10:32",
-  },
-  {
-    id: 2,
-    type: "comment",
-    tag: 0,
-    person: { name: "Ibrahim Ghoneim" },
-    comment: "Patient has been very responsive and polite.",
-    dateTime: "2023-01-23T10:45",
-  },
-  {
-    id: 3,
-    type: "",
-    person: { name: "Consult started" },
-    dateTime: "2023-01-23T11:32",
-  },
-  {
-    id: 4,
-    type: "text-speech",
-    comment:
-      "I feel very sick and I have a headache. I have been feeling this way for 3 sick and I have a headache. I have been feeling this way for 3 days. †he quick brown sick and I have a headache. I have been feeling this way for 3 days. †he quick brown sick and I have a headache. I have been feeling this way for 3 days. †he quick brown days. †he quick brown",
-    dateTime: "2023-01-23T11:45",
-  },
-  {
-    id: 5,
-    type: "comment",
-    tag: 3,
-    person: { name: "Ibrahim Ghoneim" },
-    comment: "Patient has been feeling sick for 3 days.",
-    dateTime: "2023-01-23T11:45",
-  },
-  {
-    id: 6,
-    type: "comment",
-    tag: 3,
-    person: { name: "Ibrahim Ghoneim" },
-    comment: "Patient has been feeling sick for 3 days.",
-    dateTime: "2023-01-23T11:45",
-  },
+import "regenerator-runtime/runtime";
+import SpeechRecognition, {
+  useSpeechRecognition,
+} from "react-speech-recognition";
 
-  {
-    id: 7,
-    type: "text-speech",
-    comment:
-      "I feel very sick and I have a headache. I have been feeling this way for 3 sick and I have a headache. I have been feeling this way for 3 days. †he quick brown sick and I have a headache. I have been feeling this way for 3 days. †he quick brown sick and I have a headache. I have been feeling this way for 3 days. †he quick brown days. †he quick brown",
-    dateTime: "2023-01-23T11:45",
-  },
-  {
-    id: 8,
-    type: "text-speech",
-    comment:
-      "I feel very sick and I have a headache. I have been feeling this way for 3 sick and I have a headache. I have been feeling this way for 3 days. †he quick brown sick and I have a headache. I have been feeling this way for 3 days. †he quick brown sick and I have a headache. I have been feeling this way for 3 days. †he quick brown days. †he quick brown",
-    dateTime: "2023-01-23T11:45",
-  },
-];
+import { SpeechMessage, UserMessage, SystemMessage } from "@/lib/store";
 
 const tags = [
   {
@@ -91,6 +39,7 @@ const tags = [
     icon: EyeIcon,
     iconColor: "text-white",
     bgColor: "bg-blue-400",
+    shortcut: "\\o",
   },
   {
     name: "Treatment",
@@ -98,6 +47,7 @@ const tags = [
     icon: HeartIcon,
     iconColor: "text-white",
     bgColor: "bg-green-400",
+    shortcut: "\\t",
   },
   {
     name: "Concern",
@@ -105,6 +55,7 @@ const tags = [
     icon: QuestionMarkCircleIcon,
     iconColor: "text-white",
     bgColor: "bg-red-400",
+    shortcut: "\\c",
   },
   {
     name: "Important",
@@ -112,6 +63,7 @@ const tags = [
     icon: ExclamationCircleIcon,
     iconColor: "text-white",
     bgColor: "bg-yellow-400",
+    shortcut: "\\i",
   },
   {
     name: "None",
@@ -119,6 +71,7 @@ const tags = [
     icon: XMarkIcon,
     iconColor: "text-gray-400",
     bgColor: "bg-transparent",
+    shortcut: "\\n",
   },
 ];
 
@@ -128,141 +81,215 @@ function classNames(...classes: (string | boolean | null | undefined)[]) {
 
 export default function ConsultPage() {
   const [selected, setSelected] = useState(tags[4]);
+  const [comment, setComment] = useState("");
+  const scrollRef = useRef<HTMLUListElement>(null);
+  const { noteBlocks, setNoteBlock, clearNoteBlocks } = useNoteStore();
+  const { consultState } = useConsultStore();
+  const { transcript, resetTranscript, listening } = useSpeechRecognition();
+
+  useEffect(() => {
+    switch (comment) {
+      case "\\o":
+        setSelected(tags[0]);
+        setComment("");
+        break;
+      case "\\t":
+        setSelected(tags[1]);
+        setComment("");
+        break;
+      case "\\c":
+        setSelected(tags[2]);
+        setComment("");
+        break;
+      case "\\i":
+        setSelected(tags[3]);
+        setComment("");
+        break;
+      case "\\n":
+        setSelected(tags[4]);
+        setComment("");
+        break;
+    }
+  }, [comment]);
+
+  useEffect(() => {
+    if (consultState === "end") {
+      SpeechRecognition.stopListening();
+      if (transcript.trim()) {
+        setNoteBlock(
+          {
+            transcript: transcript,
+          },
+          "speech",
+        );
+      }
+      setNoteBlock({ period: "end" }, "system");
+    }
+  }, [consultState, transcript, setNoteBlock]);
+
+  const handleAddComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (consultState === "start") {
+      setNoteBlock(
+        {
+          transcript: transcript,
+        },
+        "speech",
+      );
+      resetTranscript();
+    }
+
+    setNoteBlock(
+      {
+        name: "Practitioner",
+        tag: selected.name.toLowerCase() as
+          | "observation"
+          | "treatment"
+          | "concern"
+          | "important"
+          | "none",
+        message: comment,
+      },
+      "user",
+    );
+    setComment("");
+
+    setSelected(tags[4]);
+  };
+
+  useEffect(() => {
+    if (listening && transcript.trim()) {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }
+  }, [listening, transcript]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [noteBlocks]);
+
+  useEffect(() => {
+    clearNoteBlocks();
+  }, [clearNoteBlocks]);
 
   return (
     <>
       <ConsultForm />
       <div className="flex items-center flex-col gap-6 h-5/6 justify-center">
         <div className="bg-white rounded-lg shadow-sm p-6 w-90 min-h-[35rem] min-w-[50%] flex justify-between flex-col gap-6 w-[500px] h-[50%]">
-          <ul role="list" className="space-y-6 h-100 w-full overflow-y-auto">
-            {activity.map((activityItem, activityItemIdx) => (
+          <ul
+            role="list"
+            className="space-y-6 px-2 h-full w-full overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:w-2 [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-indigo-300 overflow-scroll"
+            ref={scrollRef}
+          >
+            {noteBlocks.map((activityItem, activityItemIdx) => (
               <li key={activityItem.id} className="relative flex gap-x-4">
                 <div
                   className={classNames(
-                    activityItemIdx === activity.length - 1
-                      ? "h-8"
-                      : "-bottom-8",
+                    activityItemIdx !== noteBlocks.length - 1 && "-bottom-8",
                     "absolute top-0 left-0 flex w-6 justify-center",
                   )}
                 >
                   <div className="w-px bg-gray-200" />
                 </div>
-                {activityItem.type === "text-speech" ? (
-                  <>
-                    <div className="relative flex size-6 flex-none items-center justify-center bg-white">
-                      <MicrophoneIcon
-                        aria-hidden="true"
-                        className="size-4 flex-none text-gray-400 z-0"
-                      />
-                    </div>
-                    <div className="flex-auto rounded-md p-3 ring-1 ring-gray-200 ring-inset">
-                      <div className="flex justify-between gap-x-4">
-                        <div className="py-0.5 text-xs/5 text-gray-500">
-                          <span className="font-medium text-gray-900">
-                            Speech Recognition
-                          </span>{" "}
-                          detected
-                        </div>
-                        <time
-                          dateTime={activityItem.dateTime}
-                          className="flex-none py-0.5 text-xs/5 text-gray-500"
-                        >
-                          {new Date(activityItem.dateTime).toLocaleTimeString(
-                            "en-US",
-                            {
-                              hour: "numeric",
-                              minute: "numeric",
-                            },
-                          )}
-                        </time>
-                      </div>
-                      <p className="text-sm/6 text-gray-500">
-                        {activityItem.comment}
-                      </p>
-                    </div>
-                  </>
+                {activityItem.type === "speech" ? (
+                  <SpeechBlock
+                    noteBlock={{
+                      id: activityItem.id,
+                      type: "speech",
+                      note: {
+                        transcript: (activityItem.note as SpeechMessage)
+                          .transcript,
+                      },
+                      dateTime: activityItem.dateTime,
+                    }}
+                  />
                 ) : (
                   <>
-                    {activityItem.type === "comment" ? (
-                      <>
-                        <div className="relative flex size-6 flex-none items-center justify-center bg-white">
-                          <MicrophoneIcon
-                            aria-hidden="true"
-                            className="size-4 flex-none text-gray-400 z-0"
-                          />
-                        </div>
-                        <div className="flex-auto rounded-md p-3 ring-1 ring-gray-200 ring-inset">
-                          <div className="flex justify-between gap-x-4">
-                            <div className="py-0.5 text-xs/5 text-gray-500">
-                              <span className="font-medium text-gray-900">
-                                {activityItem.person.name}
-                              </span>{" "}
-                              noted
-                            </div>
-                            <time
-                              dateTime={activityItem.dateTime}
-                              className="flex-none py-0.5 text-xs/5 text-gray-500"
-                            >
-                              {new Date(
-                                activityItem.dateTime,
-                              ).toLocaleTimeString("en-US", {
-                                hour: "numeric",
-                                minute: "numeric",
-                              })}
-                            </time>
-                          </div>
-                          <p className="text-sm/6 text-gray-500">
-                            {activityItem.comment}
-                          </p>
-                        </div>
-                      </>
+                    {activityItem.type === "user" ? (
+                      <UserBlock
+                        noteBlock={{
+                          id: activityItem.id,
+                          type: "user",
+                          note: {
+                            name: (activityItem.note as UserMessage).name,
+                            message: (activityItem.note as UserMessage).message,
+                            tag: (activityItem.note as UserMessage).tag,
+                          },
+                          dateTime: activityItem.dateTime,
+                        }}
+                      />
                     ) : (
-                      <>
-                        <div className="relative flex size-6 flex-none items-center justify-center bg-white">
-                          {activityItem.person.name === "Consult started" ? (
-                            <PlayIcon
-                              aria-hidden="true"
-                              className="size-4 text-green-400"
-                            ></PlayIcon>
-                          ) : (
-                            <ClipboardDocumentListIcon
-                              aria-hidden="true"
-                              className="size-4 text-orange-400"
-                            ></ClipboardDocumentListIcon>
-                          )}
-                        </div>
-                        <p className="flex-auto py-0.5 text-xs/5 text-gray-500">
-                          <span className="font-medium text-gray-900">
-                            {activityItem.person.name}
-                          </span>{" "}
-                          {activityItem.type}
-                        </p>
-                        <time
-                          dateTime={activityItem.dateTime}
-                          className="flex-none py-0.5 text-xs/5 text-gray-500"
-                        >
-                          {new Date(activityItem.dateTime).toLocaleTimeString(
-                            "en-US",
-                            {
-                              hour: "numeric",
-                              minute: "numeric",
-                            },
-                          )}
-                        </time>
-                      </>
+                      <SystemBlock
+                        noteBlock={{
+                          id: activityItem.id,
+                          type: "system",
+                          note: {
+                            period: (activityItem.note as SystemMessage).period,
+                          },
+                          dateTime: activityItem.dateTime,
+                        }}
+                      />
                     )}
                   </>
                 )}
               </li>
             ))}
+            {consultState === "start" && (
+              <>
+                <li className="relative flex gap-x-4">
+                  <div className="relative flex size-6 flex-none items-center justify-center bg-white">
+                    <MicrophoneIcon
+                      aria-hidden="true"
+                      className="size-6 flex-none text-red-600 z-0 animate-pulse mt-2"
+                    />
+                  </div>
+                  <div className="flex-auto rounded-md p-3 ring-1 ring-gray-200 ring-inset">
+                    <div className="flex justify-between gap-x-4">
+                      <div className="py-0.5 text-xs/5 text-gray-500">
+                        <span className="font-medium text-gray-900">
+                          Active Speech Recognition
+                        </span>
+                      </div>
+                      <time
+                        dateTime={new Date().toISOString()}
+                        className="flex-none py-0.5 text-xs/5 text-gray-500"
+                      >
+                        {new Date(new Date().toISOString()).toLocaleTimeString(
+                          "en-US",
+                          {
+                            hour: "numeric",
+                            minute: "numeric",
+                          },
+                        )}
+                      </time>
+                    </div>
+                    <p className="text-sm/6 text-gray-500">{transcript}</p>
+                  </div>
+                </li>
+              </>
+            )}
           </ul>
 
           {/* New comment form */}
-          <div className="mt-6 flex gap-x-3 border-t border-gray-200 pt-6">
+          <div className="flex gap-x-3 border-t border-gray-200 pt-6">
             <UserIcon aria-hidden="true" className="size-8 text-gray-400" />
 
-            <form action="#" className="relative flex-auto">
-              <div className="overflow-hidden rounded-lg pb-12 outline-1 -outline-offset-1 ring-gray-400 ring-1 focus-within:ring-gray-900 focus-within:ring-2">
+            <form
+              action="#"
+              className="relative flex-auto"
+              onSubmit={handleAddComment}
+            >
+              <div className="overflow-hidden rounded-lg pb-12 outline-1 -outline-offset-1 ring-gray-400 ring-1 focus-within:ring-indigo-300 focus-within:ring-2">
                 <label htmlFor="comment" className="sr-only">
                   Add your comment
                 </label>
@@ -272,7 +299,9 @@ export default function ConsultPage() {
                   rows={2}
                   placeholder="Add your comment..."
                   className="block w-full resize-none bg-transparent px-3 py-1.5 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm/6"
-                  defaultValue={""}
+                  onChange={(e) => setComment(e.target.value)}
+                  value={comment}
+                  required
                 />
               </div>
 
@@ -282,7 +311,7 @@ export default function ConsultPage() {
                     <Listbox value={selected} onChange={setSelected}>
                       <Label className="sr-only">Your mood</Label>
                       <div className="relative">
-                        <ListboxButton className="relative -m-2.5 flex size-10 items-center justify-center rounded-full text-gray-400 hover:text-gray-500">
+                        <ListboxButton className="relative -m-2.5 flex size-10 items-center justify-center rounded-full text-gray-400 hover:text-indigo-400">
                           <span className="flex items-center justify-center">
                             {selected.value === null ? (
                               <span>
@@ -336,10 +365,17 @@ export default function ConsultPage() {
                                     )}
                                   />
                                 </div>
+
+                                {/* mood name and shortcut at the end */}
+                                {/* <div className="flex items-center justify-between w-full"> */}
                                 <span className="ml-3 block truncate font-medium">
                                   {mood.name}
                                 </span>
+                                <div className="ml-auto text-gray-500 text-xs/5 tracking-wider">
+                                  {mood.shortcut}
+                                </div>
                               </div>
+                              {/* </div> */}
                             </ListboxOption>
                           ))}
                         </ListboxOptions>
@@ -349,7 +385,8 @@ export default function ConsultPage() {
                 </div>
                 <button
                   type="submit"
-                  className="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 ring-1 shadow-xs ring-gray-300 ring-inset hover:bg-gray-50"
+                  className="rounded-md bg-indigo-600 hover:bg-indigo-700 px-2.5 py-1.5 text-sm font-semibold ring-1 shadow-xs ring-gray-300 ring-inset disabled:opacity-40 text-white"
+                  disabled={!comment}
                 >
                   Comment
                 </button>
